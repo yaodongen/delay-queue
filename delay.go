@@ -9,13 +9,13 @@ import (
 )
 
 
-// AddToDelayQueue
+// AddToQueue
 // 1. add the timePiece(sample: "1645614542") to sorted set
 // 2. rpush the real data to timePiece
 //
 // @delaySecond, the expected delay seconds, 600 means delay 600 second
 // @maxTTL, the max time data will live if there is no consumer
-func AddToDelayQueue(ctx context.Context, rdb *redis.Client, key string, value string, delaySecond, maxTTL int64) error {
+func AddToQueue(ctx context.Context, rdb *redis.Client, key string, value string, delaySecond, maxTTL int64) error {
 	expireSecond := time.Now().Unix() + delaySecond
 	// generate time piece to store v
 	timePiece := fmt.Sprintf("dq:%s:%d", key, expireSecond)
@@ -39,12 +39,12 @@ func AddToDelayQueue(ctx context.Context, rdb *redis.Client, key string, value s
 	return err
 }
 
-// GetFromDelayQueue
+// GetFromQueue
 // 1. get a timePiece from sorted set which is before time.Now()
 // 2. lpop the real data from timePiece
 //
 // Usage: Use it in a script or goroutine
-func GetFromDelayQueue(ctx context.Context, rdb *redis.Client, key string) (chan string, chan error) {
+func GetFromQueue(ctx context.Context, rdb *redis.Client, key string) (chan string, chan error) {
 	resCh := make(chan string, 0)
 	errCh := make(chan error, 1)
 	go func() {

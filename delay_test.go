@@ -32,7 +32,7 @@ func TestBase(t *testing.T) {
 	// add 4 items
 	values := []string{"a", "b", "c", "d"}
 	for _, v := range values {
-		err := AddToDelayQueue(ctx, rdb, delayQueueName, v, sleepSecond, 100)
+		err := AddToQueue(ctx, rdb, delayQueueName, v, sleepSecond, 100)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -42,7 +42,7 @@ func TestBase(t *testing.T) {
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	go func() {
-		resCh, errCh := GetFromDelayQueue(ctx, rdb, delayQueueName)
+		resCh, errCh := GetFromQueue(ctx, rdb, delayQueueName)
 		for res := range resCh {
 			t.Log("get from queue, v:", res)
 			h := values[0]
@@ -79,7 +79,7 @@ func TestAutoExpire(t *testing.T) {
 	// add 2 items
 	values := []string{"a"}
 	for _, v := range values {
-		err := AddToDelayQueue(ctx, rdb, delayQueueName, v, sleepSecond, maxTTL)
+		err := AddToQueue(ctx, rdb, delayQueueName, v, sleepSecond, maxTTL)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -93,7 +93,7 @@ func TestAutoExpire(t *testing.T) {
 	}
 
 	// try consume
-	resCh, errCh := GetFromDelayQueue(ctx, rdb, delayQueueName)
+	resCh, errCh := GetFromQueue(ctx, rdb, delayQueueName)
 	select {
 	case <-resCh:
 		t.Fatal(fmt.Errorf("data should expired"))
@@ -111,12 +111,12 @@ func TestAutoExpire(t *testing.T) {
 }
 
 // Use: go test -bench=. -run=none
-func BenchmarkAddToDelayQueue(b *testing.B) {
+func BenchmarkAddToQueue(b *testing.B) {
 	rdb := getRdb()
 	ctx := context.Background()
 	delayQueueName := "delay_queue"
 	for i := 0; i < b.N; i++ {
-		err := AddToDelayQueue(ctx, rdb, delayQueueName, strconv.Itoa(i), -1, 100)
+		err := AddToQueue(ctx, rdb, delayQueueName, strconv.Itoa(i), -1, 100)
 		if err != nil {
 			b.FailNow()
 		}
@@ -126,7 +126,7 @@ func BenchmarkAddToDelayQueue(b *testing.B) {
 	var res int32
 	// equals to runtime.GOMAXPROCS(0)
 	b.RunParallel(func(pb *testing.PB) {
-		resCh, errCh := GetFromDelayQueue(ctx, rdb, delayQueueName)
+		resCh, errCh := GetFromQueue(ctx, rdb, delayQueueName)
 		for pb.Next() {
 			select {
 			case <-resCh:

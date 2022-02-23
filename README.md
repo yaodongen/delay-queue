@@ -22,14 +22,14 @@ func main() {
 		Addr: "localhost:6379",
 	})
 	// producer
-	err := delay.AddToDelayQueue(ctx, rdb, "key", "123", 5, 86400)
+	err := delay.AddToQueue(ctx, rdb, "key", "123", 5, 86400)
 	if err != nil {
 		// your own logic
 	}
 
 	// consumer
 	go func() {
-		resCh, errCh := delay.GetFromDelayQueue(ctx, rdb, "key")
+		resCh, errCh := delay.GetFromQueue(ctx, rdb, "key")
 		for res := range resCh {
 			// your own logic
 			_ = res
