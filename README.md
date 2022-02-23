@@ -35,7 +35,7 @@ func main() {
 			_ = res
 		}
 		for err := range errCh {
-			if err != context.Canceled && err != context.DeadlineExceeded {
+			if err != nil && err != context.Canceled && err != context.DeadlineExceeded {
 				// your own logic
 			}
 		}
