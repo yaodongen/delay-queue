@@ -2,6 +2,10 @@
 ## Usage
 `import delay "github.com/yaodongen/delay-queue"`
 
+## Advantage
+- safe, fast and nice concurrency support
+- Benchmark with 8 thread in local can read 7079 ns/op, equals to 141262 reads / s. (`go test -bench=. -run=none`)
+
 ## Sample 
 ```go
 package main

@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"github.com/go-redis/redis/v8"
 	"github.com/stretchr/testify/assert"
+	"strconv"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -106,4 +108,37 @@ func TestAutoExpire(t *testing.T) {
 	for err := range errCh {
 		assert.Error(t, err, context.Canceled)
 	}
+}
+
+// Use: go test -bench=. -run=none
+func BenchmarkAddToDelayQueue(b *testing.B) {
+	rdb := getRdb()
+	ctx := context.Background()
+	delayQueueName := "delay_queue"
+	for i := 0; i < b.N; i++ {
+		err := AddToDelayQueue(ctx, rdb, delayQueueName, strconv.Itoa(i), -1, 100)
+		if err != nil {
+			b.FailNow()
+		}
+	}
+	ctx, cancel := context.WithCancel(ctx)
+	b.ResetTimer()
+	var res int32
+	// equals to runtime.GOMAXPROCS(0)
+	b.RunParallel(func(pb *testing.PB) {
+		resCh, errCh := GetFromDelayQueue(ctx, rdb, delayQueueName)
+		for pb.Next() {
+			select {
+			case <-resCh:
+				atomic.AddInt32(&res, 1)
+			}
+		}
+		cancel()
+		for err := range errCh {
+			if err != context.Canceled && err != nil {
+				b.FailNow()
+			}
+		}
+	})
+	assert.Equal(b, b.N, int(res))
 }
