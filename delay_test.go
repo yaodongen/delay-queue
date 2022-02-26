@@ -110,35 +110,63 @@ func TestAutoExpire(t *testing.T) {
 	}
 }
 
+func clean(ctx context.Context, rdb *redis.Client, key string) {
+	res, err := rdb.ZRange(ctx, key, 0, 1000).Result()
+	if err != nil {
+		panic(err)
+	}
+	for _, v := range res {
+		err = rdb.Del(ctx, v).Err()
+		if err != nil {
+			panic(err)
+		}
+	}
+
+}
+
 // Use: go test -bench=. -run=none
 func BenchmarkAddToQueue(b *testing.B) {
 	rdb := getRdb()
 	ctx := context.Background()
 	delayQueueName := "delay_queue"
+	clean(ctx, rdb, delayQueueName)
 	for i := 0; i < b.N; i++ {
-		err := AddToQueue(ctx, rdb, delayQueueName, strconv.Itoa(i), -1, 100)
+		err := AddToQueue(ctx, rdb, delayQueueName, strconv.Itoa(i+1), -1, 100)
 		if err != nil {
 			b.FailNow()
 		}
 	}
 	ctx, cancel := context.WithCancel(ctx)
 	b.ResetTimer()
-	var res int32
+	var res int64
+	var count int32
 	// equals to runtime.GOMAXPROCS(0)
 	b.RunParallel(func(pb *testing.PB) {
 		resCh, errCh := GetFromQueue(ctx, rdb, delayQueueName)
-		for pb.Next() {
+		for {
 			select {
-			case <-resCh:
-				atomic.AddInt32(&res, 1)
+			case x := <-resCh:
+				c, _ := strconv.Atoi(x)
+				atomic.AddInt64(&res, int64(c))
+				atomic.AddInt32(&count, 1)
+			case <-ctx.Done():
+				break
+			}
+			if atomic.LoadInt32(&count) >= int32(b.N) {
+				cancel()
+				break
 			}
 		}
-		cancel()
+		// can't use pb.next
+		for pb.Next() {
+		}
+
 		for err := range errCh {
 			if err != context.Canceled && err != nil {
 				b.FailNow()
 			}
 		}
 	})
-	assert.Equal(b, b.N, int(res))
+
+	assert.Equal(b, int64(1+b.N)*int64(b.N)/2, atomic.LoadInt64(&res))
 }
